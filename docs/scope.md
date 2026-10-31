@@ -1,0 +1,5 @@
+Expiry-Aware Multi-Echelon Inventory Planning for Perishables. Fresh-food retailers lose money in two ways: stock expires unsold in one store while another runs out. This project builds a decision-support system for a three-tier network (central warehouse, city warehouses, stores) that forecasts demand while correcting for stockout-censored sales, recommends orders and stock transfers that account for shelf life, and escalates unresolved surplus to markdown or donation. A planner reviews and approves each plan. Evaluation is by simulation on real demand from FreshRetailNet-50K: waste, fill rate and cost are compared across an independent-store baseline, forecast-only ordering and the full system.
+
+In scope: 3 cities, 284 stores, 44 products, forecasting, ordering, transfers, expiry logic, planner review, dashboard.
+Simulated (and stated as such): central warehouse, shelf life, stock levels, lead times, costs, disruptions.
+Out of scope: real supplier integration, prices in currency, products outside this subset.
