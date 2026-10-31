@@ -38,3 +38,13 @@ def allocation_ratio(order, available, wh_of, m):
     req = np.bincount(wh_of, weights=order, minlength=m)
     ratio = np.where(req > 0, np.minimum(1.0, available / np.maximum(req, 1e-9)), 0.0)
     return ratio, req
+  
+def risk_flags(f50, f90, stock_by_life, on_hand):
+    """expiring units: units expected to expire unsold (oldest stock is sold first);
+    stockout risk: stock on hand is below the median forecast demand for today.
+    stock_by_life columns = remaining shelf life in days; f50 needs at least L columns."""
+    L = stock_by_life.shape[1] - 1
+    cum_forecast = np.cumsum(f50[:, :L], axis=1)
+    cum_stock = np.cumsum(stock_by_life[:, 1:], axis=1)
+    at_risk = np.maximum(0.0, cum_stock - cum_forecast).max(axis=1)
+    return at_risk, on_hand < f50[:, 0]

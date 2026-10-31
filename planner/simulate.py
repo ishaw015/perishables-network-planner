@@ -12,7 +12,7 @@ def fefo(stock, amt, rmin):
         taken[:, r] = t; stock[:, r] -= t; rem -= t
     return taken
 
-def run(inp, L, kappa, pool=True, warm=7):
+def run(inp, L, kappa, pool=True, warm=7, snapshot=None):
     """7 warm-up days (same week repeated) + 7 measured days. L = shelf life in days."""
     n, m, wh_of = inp.n, inp.m, inp.wh_of
     bc = lambda x: np.bincount(wh_of, weights=x, minlength=m)
@@ -38,6 +38,11 @@ def run(inp, L, kappa, pool=True, warm=7):
         idx = [min(t + i, H - 1) for i in range(K)]
         w50, w90 = F50[:, idx], F90[:, idx]
 
+        if snapshot is not None and t == snapshot:        # stop here and hand back the current state
+            return dict(t=t, L=L, S=S.copy(), W=W.copy(),
+                        pend_s=sum(a.sum(1) for a in arr_s.values()) if arr_s else np.zeros(n),
+                        pend_w=sum(a.sum(1) for a in arr_w.values()) if arr_w else np.zeros(m),
+                        w50=w50, w90=w90)
         # store orders, filled from the city warehouse, arrive tomorrow
         pend = sum(a.sum(1) for a in arr_s.values()) if arr_s else 0
         order = policy.store_orders(policy.store_targets(w50, w90, kappa), S.sum(1), pend)
