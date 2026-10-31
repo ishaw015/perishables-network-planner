@@ -47,4 +47,4 @@ def risk_flags(f50, f90, stock_by_life, on_hand):
     cum_forecast = np.cumsum(f50[:, :L], axis=1)
     cum_stock = np.cumsum(stock_by_life[:, 1:], axis=1)
     at_risk = np.maximum(0.0, cum_stock - cum_forecast).max(axis=1)
-    return at_risk, on_hand < f50[:, 0]
+    return at_risk, on_hand < f50[:, 0], on_hand < f90[:, 0]     # expiring units, likely stockout, possible stockout

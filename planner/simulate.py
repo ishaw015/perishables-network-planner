@@ -12,7 +12,7 @@ def fefo(stock, amt, rmin):
         taken[:, r] = t; stock[:, r] -= t; rem -= t
     return taken
 
-def run(inp, L, kappa, pool=True, warm=7, snapshot=None):
+def run(inp, L, kappa, pool=True, warm=7, snapshot=None, trace=None):
     """7 warm-up days (same week repeated) + 7 measured days. L = shelf life in days."""
     n, m, wh_of = inp.n, inp.m, inp.wh_of
     bc = lambda x: np.bincount(wh_of, weights=x, minlength=m)
@@ -58,7 +58,9 @@ def run(inp, L, kappa, pool=True, warm=7, snapshot=None):
         tw = policy.warehouse_targets(w50, w90, kappa, wh_of, m, pool)
         a = np.zeros((m, R)); a[:, L] = policy.warehouse_orders(tw, W.sum(1), pend_w)
         arr_w[t + 2] = a
-
+        
+        if trace is not None:
+          trace[t] = dict(order_s=order.copy(), order_w=a[:, L].copy())
         # customers buy, oldest stock first
         taken = fefo(S, D[:, t], rmin=1)
         if meas:

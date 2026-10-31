@@ -6,3 +6,5 @@ matplotlib
 scikit-learn
 lightgbm
 jupyter
+psycopg[binary]
+python-dotenv
