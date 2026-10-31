@@ -1,0 +1,8 @@
+datasets
+pandas
+pyarrow
+numpy
+matplotlib
+scikit-learn
+lightgbm
+jupyter
