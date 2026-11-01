@@ -14,3 +14,10 @@ pyjwt
 bcrypt
 python-multipart
 psycopg[binary,pool]
+httpx==0.28.1
+httpx2==2.16.0
+pytest==9.2.0
+psycopg==3.3.6
+psycopg-binary==3.3.6
+psycopg-pool==3.3.3
+python-dotenv==1.2.4
