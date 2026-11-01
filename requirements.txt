@@ -8,3 +8,9 @@ lightgbm
 jupyter
 psycopg[binary]
 python-dotenv
+fastapi
+uvicorn[standard]
+pyjwt
+bcrypt
+python-multipart
+psycopg[binary,pool]
