@@ -21,3 +21,7 @@ psycopg==3.3.6
 psycopg-binary==3.3.6
 psycopg-pool==3.3.3
 python-dotenv==1.2.4
+google-genai
+langgraph
+requirements.txt
+pyspellchecker

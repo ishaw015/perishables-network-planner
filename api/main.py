@@ -6,8 +6,9 @@ from fastapi.responses import JSONResponse
 from . import database
 from .routes_auth import router as auth_router
 from .routes_plans import router as plans_router
+from .routes_agent import router as agent_router
+from .routes_agent import router as agent_router
 
-log = logging.getLogger("api")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -20,6 +21,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"],
                    allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 app.include_router(auth_router)
 app.include_router(plans_router)
+app.include_router(agent_router)
 
 @app.exception_handler(Exception)
 async def unhandled(request: Request, exc: Exception):
