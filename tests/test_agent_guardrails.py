@@ -21,11 +21,19 @@ def test_database_connection_is_read_only():
             c.execute("UPDATE store_lines SET order_qty = order_qty WHERE id = 600")
 
 
+ALLOWED_PLANNER_IMPORTS = {"from planner import whatif", "from planner.whatif import Scenario"}
+
 def test_agent_code_has_no_write_path():
     for p in pathlib.Path("agent").glob("*.py"):
         src = p.read_text()
         assert not re.search(r"\b(INSERT|UPDATE|DELETE|ALTER|DROP)\b", src), p
-        assert not re.search(r"^\s*(from|import)\s+(planner|api)\b", src, re.M), p
+        assert not re.search(r"^\s*(from|import)\s+api\b", src, re.M), p
+        found = {m.strip() for m in re.findall(r"^\s*(?:from|import)\s+planner\b.*$", src, re.M)}
+        if p.name == "disruption.py":
+            # the what-if agent may use the pure re-plan arithmetic, nothing else from the planner
+            assert found <= ALLOWED_PLANNER_IMPORTS, (p, found)
+        else:
+            assert not found, (p, found)
 
 
 def test_derived_arithmetic_matches_policy(facts):
