@@ -48,8 +48,12 @@ def check(stores, sc):
         return "Please say which city or product is affected."
     if sc.type == "warehouse_stock_cut" and sc.city_id is None:
         return "A warehouse stock cut needs a city."
-    if not _scope(stores, sc).any():
+    in_scope = _scope(stores, sc)
+    if not in_scope.any():
         return "No lines in this plan match that city and product."
+    if sc.type == "inbound_shortfall" and stores["pending"].to_numpy(float)[in_scope].sum() <= 0:
+        return ("No stock is on its way for that city or product in this plan, "
+                "so this disruption would change nothing.")
     return None
 
 
@@ -97,11 +101,16 @@ def compute(stores, wh, kappa, sc=None):
     return out
 
 
+def _stored_sum(col):
+    """Sum as the database reports it: each line is stored to 2 decimals, then added up."""
+    return int(round(float(np.round(col.to_numpy(float), 2).sum())))
+
+
 def summarise(df):
     return {
-        "ordered_units": int(round(df["order_qty"].sum())),
-        "shipped_units": int(round(df["ship_qty"].sum())),
-        "short_units": int(round(df["short_qty"].sum())),
+        "ordered_units": _stored_sum(df["order_qty"]),
+        "shipped_units": _stored_sum(df["ship_qty"]),
+        "short_units": _stored_sum(df["short_qty"]),
         "lines_short": int((df["status"] == "warehouse short").sum()),
         "stockout_likely": int(df["stockout_likely"].sum()),
     }

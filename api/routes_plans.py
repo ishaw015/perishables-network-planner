@@ -28,15 +28,15 @@ def plan_summary(run_id: int, conn=Depends(get_conn), user=Depends(current_user)
                COUNT(*) FILTER (WHERE stockout_likely) AS stockout_likely,
                COUNT(*) FILTER (WHERE stockout_possible) AS stockout_possible,
                COUNT(*) FILTER (WHERE expiring_units > 0.5) AS expiring_series,
-               COALESCE(SUM(expiring_units), 0)::float AS expiring_units,
-               COALESCE(SUM(order_qty), 0)::float AS ordered_units,
-               COALESCE(SUM(ship_qty), 0)::float AS shipped_units,
-               COALESCE(SUM(short_qty), 0)::float AS short_units
+               COALESCE(SUM(expiring_units::float8), 0) AS expiring_units,
+               COALESCE(SUM(order_qty::float8), 0) AS ordered_units,
+               COALESCE(SUM(ship_qty::float8), 0) AS shipped_units,
+               COALESCE(SUM(short_qty::float8), 0) AS short_units
         FROM store_lines WHERE run_id = %s""", (run_id,)).fetchone()
     w = conn.execute("""
         SELECT COUNT(*) AS warehouse_pools,
                COUNT(*) FILTER (WHERE shortage) AS warehouse_pools_short,
-               COALESCE(SUM(order_qty), 0)::float AS central_order_units
+               COALESCE(SUM(order_qty::float8), 0) AS central_order_units
         FROM warehouse_lines WHERE run_id = %s""", (run_id,)).fetchone()
     d = conn.execute("""
         SELECT COUNT(DISTINCT d.store_line_id) AS decided_lines

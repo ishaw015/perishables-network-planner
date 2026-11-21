@@ -123,3 +123,10 @@ def test_check(sc, expect):
         assert msg is None
     else:
         assert expect in msg
+
+
+def test_inbound_shortfall_with_nothing_on_its_way_is_explained_not_simulated():
+    stores, _ = make_rows()
+    stores.loc[stores.city_id == 16, "pending"] = 0.0
+    assert "on its way" in whatif.check(stores, Scenario("inbound_shortfall", 16, None, 25))
+    assert whatif.check(stores, Scenario("inbound_shortfall", 12, None, 25)) is None
