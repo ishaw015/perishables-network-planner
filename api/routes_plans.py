@@ -1,8 +1,20 @@
+import re
+
+from agent.graph import call_gemini
+from agent.verify import verify
 from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from psycopg.types.json import Jsonb
 from .database import get_conn
-from .schemas import (PlanRunOut, PlanSummaryOut, StoreLineOut, WarehouseLineOut, DecisionIn, DecisionOut)
+from .schemas import (
+    PlanRunOut,
+    PlanSummaryOut,
+    StoreLineOut,
+    WarehouseLineOut,
+    DecisionIn,
+    DecisionOut,
+    AlertOut,
+)
 from .security import current_user
 
 router = APIRouter(tags=["plans"])
@@ -12,6 +24,64 @@ def _run_or_404(conn, run_id: int):
     if run is None:
         raise HTTPException(status_code=404, detail=f"Plan run {run_id} not found")
     return run
+
+def _alert_facts(conn, run_id: int) -> dict:
+    store = conn.execute(
+        """
+        SELECT
+            COUNT(*) FILTER (
+                WHERE stockout_likely
+            ) AS stockout_likely,
+            COUNT(*) FILTER (
+                WHERE stockout_possible
+            ) AS stockout_possible,
+            COUNT(*) FILTER (
+                WHERE expiring_units > 0.5
+            ) AS expiring_series,
+            COALESCE(SUM(expiring_units), 0) AS expiring_units,
+            COUNT(*) FILTER (
+                WHERE status = 'warehouse short'
+            ) AS warehouse_short
+        FROM store_lines
+        WHERE run_id = %s
+        """,
+        (run_id,),
+    ).fetchone()
+
+    warehouse = conn.execute(
+        """
+        SELECT
+            COUNT(*) FILTER (
+                WHERE shortage
+            ) AS shortage_pools,
+            COALESCE(
+                SUM(GREATEST(requested_by_stores - shippable_now, 0)),
+                0
+            ) AS shortage_units
+        FROM warehouse_lines
+        WHERE run_id = %s
+        """,
+        (run_id,),
+    ).fetchone()
+
+    return {
+        **store,
+        **warehouse,
+    }
+    
+def _alert_needed(facts: dict) -> bool:
+    return any(
+        int(facts.get(key) or 0) > 0
+        for key in (
+            "stockout_likely",
+            "stockout_possible",
+            "expiring_series",
+            "warehouse_short",
+            "shortage_pools",
+        )
+    ) or float(facts.get("expiring_units") or 0) > 0.5 or float(
+        facts.get("shortage_units") or 0
+    ) > 0.5
 
 @router.get("/plans", response_model=list[PlanRunOut])
 def list_plans(conn=Depends(get_conn), user=Depends(current_user)):
@@ -111,3 +181,134 @@ def decide(line_id: int, body: DecisionIn, conn=Depends(get_conn), user=Depends(
                                               "recommended": line["order_qty"]})))
     conn.commit()
     return dec
+def _sentence_count(text: str) -> int:
+    return len([
+        s for s in re.split(r"(?<=[.!?])\s+", text.strip())
+        if s.strip()
+    ])
+
+
+def _alert_agent_facts(raw: dict, run: dict) -> dict:
+    return {
+        "plan.plan_date": {
+            "value": str(run["plan_date"]),
+            "label": "Plan date",
+        },
+        "alert.stockout_likely": {
+            "value": int(raw["stockout_likely"] or 0),
+            "label": "Store lines with likely stockout risk",
+        },
+        "alert.stockout_possible": {
+            "value": int(raw["stockout_possible"] or 0),
+            "label": "Store lines with possible stockout risk",
+        },
+        "alert.expiring_series": {
+            "value": int(raw["expiring_series"] or 0),
+            "label": "Store-product series with expiring stock",
+        },
+        "alert.expiring_units": {
+            "value": float(raw["expiring_units"] or 0),
+            "label": "Units expiring",
+        },
+        "alert.warehouse_short": {
+            "value": int(raw["warehouse_short"] or 0),
+            "label": "Store lines marked warehouse short",
+        },
+        "alert.shortage_pools": {
+            "value": int(raw["shortage_pools"] or 0),
+            "label": "Warehouse pools with shortages",
+        },
+        "alert.shortage_units": {
+            "value": float(raw["shortage_units"] or 0),
+            "label": "Warehouse shortage units",
+        },
+    }
+
+
+@router.post(
+    "/plans/{run_id}/alert",
+    response_model=AlertOut,
+)
+def generate_plan_alert(
+    run_id: int,
+    conn=Depends(get_conn),
+    user=Depends(current_user),
+):
+    run = _run_or_404(conn, run_id)
+    raw = _alert_facts(conn, run_id)
+    alert_needed = _alert_needed(raw)
+
+    source = "none"
+    verified = True
+
+    if not alert_needed:
+        message = (
+            "No material stockout, expiry, or warehouse-shortage risks "
+            "were detected for this plan."
+        )
+    else:
+        facts = _alert_agent_facts(raw, run)
+
+        question = (
+            "Write a concise daily inventory risk alert for this plan. "
+            "Use exactly 2 to 4 sentences. Mention only risks supported "
+            "by the supplied facts. Do not recommend or change order "
+            "quantities, and do not invent actions or causes. "
+            "Return the answer with the relevant used_facts."
+        )
+
+        try:
+            draft = call_gemini(question, facts)
+            result = verify(draft, facts)
+
+            sentence_count = _sentence_count(draft.get("answer", ""))
+
+            if (
+                result.get("ok")
+                and not draft.get("cannot_answer", False)
+                and 2 <= sentence_count <= 4
+            ):
+                message = draft["answer"].strip()
+                source = "gemini"
+                verified = True
+            else:
+                raise ValueError("Alert draft failed verification")
+
+        except Exception:
+            message = (
+                "This plan has store lines flagged for stockout risk, "
+                "expiring stock, or warehouse shortages. "
+                "Review the plan summary and affected lines before "
+                "dispatching orders."
+            )
+            source = "template"
+            verified = False
+
+    conn.execute(
+        """
+        INSERT INTO audit_log
+            (user_id, action, entity, entity_id, detail)
+        VALUES (%s, %s, %s, %s, %s)
+        """,
+        (
+            user["id"],
+            "daily_alert_generated",
+            "plan_run",
+            run_id,
+            Jsonb({
+                "alert_needed": alert_needed,
+                "verified": verified,
+                "source": source,
+                "message": message,
+            }),
+        ),
+    )
+    conn.commit()
+
+    return AlertOut(
+        run_id=run_id,
+        alert_needed=alert_needed,
+        message=message,
+        verified=verified,
+        source=source,
+    )

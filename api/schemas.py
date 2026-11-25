@@ -97,3 +97,10 @@ class DecisionOut(BaseModel):
     final_qty: float
     comment: Optional[str] = None
     decided_at: datetime
+    
+class AlertOut(BaseModel):
+    run_id: int
+    alert_needed: bool
+    message: str
+    verified: bool
+    source: Literal["gemini", "template", "none"]
