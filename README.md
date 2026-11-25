@@ -15,6 +15,13 @@ Perishables have a short shelf life, so planners face two opposite risks every d
 
 Stock also sits at several levels, so a shortage at one warehouse affects every store it serves. This project plans across the whole network and accounts for expiry.
 
+## Live demo
+
+- **Web app:** https://perishables-network-planner.vercel.app
+- **API and docs:** https://perishables-planner-api.onrender.com/docs
+
+The API runs on a free Render plan that sleeps after 15 minutes without traffic, so the first request can take about a minute to wake it. The data is a simulated example plan (28 June 2024).
+
 ## What it does
 
 | Component | What it does |
@@ -57,7 +64,7 @@ Data → Recovery → Forecast (LightGBM) → Planner → PostgreSQL
 
 ![System architecture](docs/architecture.png)
 
-Dashed boxes are planned, not built yet.
+The API and database run in the cloud (Render and Neon), and the web app runs on Vercel. A daily n8n workflow emails a verified risk alert.
 
 ## Project structure
 
@@ -103,6 +110,17 @@ web/         Next.js frontend
 - Holding, wastage and lost-sales costs
 
 The demand is real retail data. The inventory network and replenishment operations are simulated, so the results show how the policy performs on realistic demand, not in a live supply chain.
+
+## Deployment
+
+| Part | Where it runs |
+|---|---|
+| Database | Neon (PostgreSQL) |
+| API | Render, built from the `Dockerfile` using `requirements-api.txt` |
+| Web app | Vercel, with `web` as the root directory |
+| Daily alert | n8n Cloud workflow (`n8n/Perishables_Daily_Risk_Alert.json`), see `docs/daily_risk_alert_workflow.md` |
+
+Settings are read from environment variables: `DATABASE_URL`, `JWT_SECRET`, `GEMINI_API_KEY` and `CORS_ORIGINS` on the API, and `NEXT_PUBLIC_API_URL` on the web app. Secrets are never committed.
 
 ## Getting started
 
@@ -195,8 +213,8 @@ python -m evaluation.run_eval --summary
 - [x] Explain agent with verifier
 - [x] Disruption (What-if) agent
 - [x] Next.js frontend
-- [ ] n8n daily alert workflow
-- [ ] Cloud deployment (API, frontend, database)
+- [x] n8n daily alert workflow (built and tested; the scheduled run is not switched on yet)
+- [x] Cloud deployment (Render, Vercel, Neon)
 - [ ] Final report and user manual
 
 ## Limitations
