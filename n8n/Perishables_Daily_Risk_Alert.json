@@ -1,0 +1,259 @@
+{
+  "name": "Perishables Daily Risk Alert",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -144,
+        0
+      ],
+      "id": "40730f04-e3b1-493d-b870-edc742087cd2",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://perishables-planner-api.onrender.com/auth/login",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "username",
+              "value": "isha.wagh8888@gmail.com"
+            },
+            {
+              "name": "password",
+              "value": "REPLACE_WITH_PASSWORD"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        16,
+        144
+      ],
+      "id": "94e4cdeb-0666-4d40-9665-076b42463bda",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://perishables-planner-api.onrender.com/plans/' + $json.id + '/alert' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('HTTP Request').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        208,
+        0
+      ],
+      "id": "ccf59508-c774-4c4f-a0ae-3da0784bf56b",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "0ccb8a84-1eb2-4311-bf8b-b1b9ea8e8278",
+              "leftValue": "={{ $json.alert_needed }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        432,
+        0
+      ],
+      "id": "9effbfce-5eb9-4086-82d1-0f282cd8db1e",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "fromEmail": "isha.wagh8888@gmail.com",
+        "toEmail": "isha.wagh0816@gmail.com",
+        "subject": "Perishables Planner - Daily Risk Alert",
+        "html": "=<p>{{ $json.message }}</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        672,
+        -16
+      ],
+      "id": "802ae866-2614-496b-8d4f-9cefe4cd7c75",
+      "name": "Send an Email",
+      "webhookId": "9339544b-3226-42ab-8283-0c2f6f6f7209",
+      "credentials": {
+        "smtp": {
+          "id": "8fMlZacekiWQI3yf",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://perishables-planner-api.onrender.com/plans",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('HTTP Request').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        240,
+        144
+      ],
+      "id": "8c4684e2-4ab2-4a08-aa93-e22b5f59865c",
+      "name": "HTTP Request2",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        464,
+        240
+      ],
+      "id": "83b1bd7b-0ab4-4b3c-8b3e-e18f01565474",
+      "name": "Limit"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send an Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "timezone": "Asia/Kolkata",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "10e32916-2615-451a-a6a4-a309e708b4ac",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "73fdda7b5a67e8afaeaa044db70824e7e63b5f079e42f46fae570aefd31d6c36"
+  },
+  "nodeGroups": [],
+  "id": "3isha297JffL8WUo",
+  "tags": []
+}
