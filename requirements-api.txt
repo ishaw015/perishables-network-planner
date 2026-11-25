@@ -1,0 +1,16 @@
+# Runtime dependencies for the deployed API (training and notebook packages are not needed here)
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+pydantic==2.14.2
+python-multipart==0.0.33
+PyJWT==2.15.1
+bcrypt==5.0.0
+python-dotenv==1.2.4
+psycopg[binary,pool]==3.3.6
+psycopg-binary==3.3.6
+psycopg-pool==3.3.3
+numpy==2.4.6
+pandas==3.1.0
+pyspellchecker==0.9.1
+google-genai==2.34.0
+langgraph==1.2.19
